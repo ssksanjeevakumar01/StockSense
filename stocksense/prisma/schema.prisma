@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Product {
+  id              Int               @id @default(autoincrement())
+  name            String
+  sku             String            @unique
+  category        String
+  unitOfMeasure   String
+  createdAt       DateTime          @default(now())
+  
+  StockLevel      StockLevel[]
+  ReceiptLine     ReceiptLine[]
+  DeliveryLine    DeliveryLine[]
+  TransferLine    TransferLine[]
+  Adjustment      Adjustment[]
+  StockLedger     StockLedger[]
+}
+
+model Warehouse {
+  id        Int        @id @default(autoincrement())
+  name      String
+  
+  Location  Location[]
+}
+
+model Location {
+  id          Int       @id @default(autoincrement())
+  warehouseId Int
+  name        String
+  
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  
+  StockLevel         StockLevel[]
+  Receipts           Receipt[]
+  Deliveries         DeliveryOrder[]
+  InternalTransferFrom InternalTransfer[] @relation("TransferFrom")
+  InternalTransferTo   InternalTransfer[] @relation("TransferTo")
+  Adjustment         Adjustment[]
+  StockLedger        StockLedger[]
+}
+
+model StockLevel {
+  id         Int      @id @default(autoincrement())
+  productId  Int
+  locationId Int
+  quantity   Float
+  
+  product    Product  @relation(fields: [productId], references: [id])
+  location   Location @relation(fields: [locationId], references: [id])
+
+  @@unique([productId, locationId])
+}
+
+model Receipt {
+  id         Int           @id @default(autoincrement())
+  supplier   String
+  status     String
+  locationId Int
+  createdAt  DateTime      @default(now())
+  
+  location   Location      @relation(fields: [locationId], references: [id])
+  lines      ReceiptLine[]
+}
+
+model ReceiptLine {
+  id        Int      @id @default(autoincrement())
+  receiptId Int
+  productId Int
+  quantity  Float
+  
+  receipt   Receipt  @relation(fields: [receiptId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+model DeliveryOrder {
+  id         Int            @id @default(autoincrement())
+  customer   String
+  status     String
+  locationId Int
+  createdAt  DateTime       @default(now())
+  
+  location   Location       @relation(fields: [locationId], references: [id])
+  lines      DeliveryLine[]
+}
+
+model DeliveryLine {
+  id         Int           @id @default(autoincrement())
+  deliveryId Int
+  productId  Int
+  quantity   Float
+  
+  delivery   DeliveryOrder @relation(fields: [deliveryId], references: [id])
+  product    Product       @relation(fields: [productId], references: [id])
+}
+
+model InternalTransfer {
+  id             Int            @id @default(autoincrement())
+  fromLocationId Int
+  toLocationId   Int
+  status         String
+  createdAt      DateTime       @default(now())
+  
+  fromLocation   Location       @relation("TransferFrom", fields: [fromLocationId], references: [id])
+  toLocation     Location       @relation("TransferTo", fields: [toLocationId], references: [id])
+  
+  lines          TransferLine[]
+}
+
+model TransferLine {
+  id         Int              @id @default(autoincrement())
+  transferId Int
+  productId  Int
+  quantity   Float
+  
+  transfer   InternalTransfer @relation(fields: [transferId], references: [id])
+  product    Product          @relation(fields: [productId], references: [id])
+}
+
+model Adjustment {
+  id         Int      @id @default(autoincrement())
+  productId  Int
+  locationId Int
+  countedQty Float
+  delta      Float
+  createdAt  DateTime @default(now())
+  
+  product    Product  @relation(fields: [productId], references: [id])
+  location   Location @relation(fields: [locationId], references: [id])
+}
+
+model StockLedger {
+  id         Int      @id @default(autoincrement())
+  productId  Int
+  locationId Int
+  changeQty  Float
+  docType    String
+  docId      Int
+  createdAt  DateTime @default(now())
+  
+  product    Product  @relation(fields: [productId], references: [id])
+  location   Location @relation(fields: [locationId], references: [id])
+}
