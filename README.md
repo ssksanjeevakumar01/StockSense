@@ -429,3 +429,5 @@ Reference mockup: <https://link.excalidraw.com/l/65VNwvy7c4X/3ENvQFu9o8R>
 *Prototype status: UI and workflows complete, persistence and auth incomplete. See [Known Limitations](#-known-limitations-read-before-relying-on-this).*
 
 </div>
+#   S t o c k S e n s e  
+ 
