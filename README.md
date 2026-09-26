@@ -22,6 +22,7 @@
 > - The **UI, data model, and business workflows are real and working** — products, receipts, deliveries, transfers, adjustments, and the stock ledger all render and behave correctly on screen.
 > - The **persistence layer has a known bug**: documents you create *in the same browser session* are held in optimistic client state, and validating them does **not** write through to the database. Reload the page and the change is gone. Documents loaded from the seed data *do* validate and persist correctly.
 > - **Authentication is a mock.** There is no real auth, no session, and no route protection — every page is publicly reachable.
+> - **There is no live deployment.** The app runs locally only; the SQLite datasource cannot persist on a serverless host. See [limitation 9](#9-not-deployed--the-sqlite-datasource-blocks-serverless-hosting).
 > - **There are no tests.**
 >
 > See [Known Limitations](#-known-limitations-read-before-relying-on-this) for the full, specific list. Nothing in this README overstates what the code does.
@@ -100,7 +101,7 @@ This is the design decision the whole codebase is built around, and it is **genu
 
 Where the invariant is enforced:
 
-- `lib/actions.ts` — every `$transaction` that upserts a `stockLevel` also inserts a `stockLedger` row
+- `lib/actions.ts` — every `$transaction` that writes a `stockLevel` (via `update` or `create`) also inserts a `stockLedger` row in the same transaction
 - `lib/stock-context.tsx` — the optimistic client mirror applies the same pairing
 - `prisma/seed.ts` — all 24 seeded stock levels are each paired with a `seed` ledger row, so the audit trail reconciles from the very first login
 
@@ -188,9 +189,9 @@ Open **<http://localhost:8080>**.
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Dev server with HMR on port 8080 |
+| `npm run dev` | Dev server with HMR on port **8080** |
 | `npm run build` | Production build |
-| `npm start` | Serve the production build |
+| `npm start` | Serve the production build — note this is plain `next start`, so it listens on the Next.js default of **3000**, not 8080 |
 | `npm run lint` | ESLint |
 | `npx prisma db push` | Sync the schema to SQLite (no migrations directory exists) |
 | `npx prisma db seed` | Reset and reseed demo data |
@@ -371,6 +372,22 @@ No test runner, no test files, no `test` script, no GitHub Actions workflow, no 
 - No migration directory; the schema is applied with `prisma db push`.
 - No license file. The package is marked `private: true`.
 
+### 9. Not deployed — the SQLite datasource blocks serverless hosting
+
+There is no live deployment, and this is a deliberate consequence of the architecture rather than an oversight. `schema.prisma` hardcodes `provider = "sqlite"` with `url = "file:./dev.db"`, and the Server Actions import a Prisma client that writes on every validation.
+
+Serverless hosts (Vercel, Netlify) run each request in a fresh container with a read-only filesystem outside `/tmp`, so `prisma/dev.db` can be neither written nor relied upon to persist between invocations. A deploy as-is would serve the UI while every database-backed page failed at runtime.
+
+To deploy, one of these has to happen first:
+
+| Option | Trade-off |
+|---|---|
+| Switch the datasource to **Postgres** (e.g. Neon) and supply `DATABASE_URL` | Removes the "zero env vars" property; largest diff |
+| Keep SQLite but move to **Turso/libSQL** | Smallest code change, but adds a hosted dependency and a client swap |
+| Add a **migration directory** and run `prisma migrate deploy` at build time | Necessary regardless, since there is currently no migrations folder |
+
+Until then, run it locally with the Quick Start above.
+
 ## Roadmap & Task Status
 
 `TASKS.md` defines a 12-phase plan. Reality versus the plan:
@@ -429,5 +446,3 @@ Reference mockup: <https://link.excalidraw.com/l/65VNwvy7c4X/3ENvQFu9o8R>
 *Prototype status: UI and workflows complete, persistence and auth incomplete. See [Known Limitations](#-known-limitations-read-before-relying-on-this).*
 
 </div>
-#   S t o c k S e n s e  
- 
